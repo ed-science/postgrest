@@ -154,7 +154,7 @@ def run(configpath=None, stdin=None, env=None, port=None, host=None):
         else:
             socketfile = pathlib.Path(tmpdir) / "postgrest.sock"
             env["PGRST_SERVER_UNIX_SOCKET"] = str(socketfile)
-            baseurl = "http+unix://" + urllib.parse.quote_plus(str(socketfile))
+            baseurl = f"http+unix://{urllib.parse.quote_plus(str(socketfile))}"
 
         adminport = freeport()
         env["PGRST_ADMIN_SERVER_PORT"] = str(adminport)
@@ -180,7 +180,7 @@ def run(configpath=None, stdin=None, env=None, port=None, host=None):
             process.stdin.write(stdin or b"")
             process.stdin.close()
 
-            wait_until_ready(adminurl + "/ready")
+            wait_until_ready(f"{adminurl}/ready")
 
             process.stdout.read()
 
@@ -190,8 +190,7 @@ def run(configpath=None, stdin=None, env=None, port=None, host=None):
                 admin=PostgrestSession(adminurl),
             )
         finally:
-            remaining_output = process.stdout.read()
-            if remaining_output:
+            if remaining_output := process.stdout.read():
                 print(remaining_output.decode())
             process.terminate()
             try:
@@ -215,13 +214,10 @@ def wait_until_ready(url):
 
     response = None
     for _ in range(10):
-        try:
+        with contextlib.suppress(requests.ConnectionError, requests.ReadTimeout):
             response = session.get(url, timeout=1)
             if response.status_code == 200:
                 return
-        except (requests.ConnectionError, requests.ReadTimeout):
-            pass
-
         time.sleep(0.1)
 
     if response:
